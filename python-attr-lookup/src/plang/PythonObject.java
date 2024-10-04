@@ -67,22 +67,13 @@ public class PythonObject {
      * @throws PythonAttributeException When there is no attribute on this object with that name.
      */
     public PythonObject get(String attrName) throws PythonAttributeException {
-        // 首先在当前对象的属性中查找
-        PythonObject value = attrs.get(attrName);
-        if (value != null) {
-            return value; // 如果找到，返回该属性值
-        }
-
-        // 如果未找到，检查基类
-        if (this.type==null||type.getBase() != null) {
-            // 从基类获取属性
-            value = type.getBase().get(attrName);
-            if (value != null) {
-                return value; // 如果在基类找到，返回该属性值
+        for(PythonObject obj:getMRO())
+        {
+            if(obj.attrs.containsKey(attrName))
+            {
+                return obj.attrs.get(attrName);
             }
         }
-
-        // 抛出异常，如果属性未找到
         throw new PythonAttributeException(this, attrName);
     }
 

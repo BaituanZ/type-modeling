@@ -15,12 +15,7 @@ class JavaType(object):
         self.name = name
 
     def is_subtype_of(self, other):
-        """Returns True if and only if a value of this type can be used in a context that expects
-        the given type.
-
-        Subclasses must override this.
-        """
-        raise NotImplementedError(type(self).__name__ + " must override is_subtype_of()")
+        pass
 
     def is_supertype_of(self, other):
         """Convenience counterpart to is_subtype_of().
@@ -88,6 +83,9 @@ class JavaPrimitiveType(JavaType):
 
     Primitive types are not object types and do not have methods.
     """
+    def is_subtype_of(self, other):
+        return self == other
+
 
 
 class JavaObjectType(JavaType):
@@ -133,6 +131,13 @@ class JavaObjectType(JavaType):
                     pass
             raise NoSuchJavaMethod("{0} has no method named {1}".format(self.name, name))
 
+    def is_subtype_of(self, other):
+        if self == other:
+            return True
+        for supertype in self.direct_supertypes:
+            if supertype.is_subtype_of(other):
+                return True
+        return False
 
 class JavaVoidType(JavaType):
     """The Java type `void`.
@@ -152,6 +157,24 @@ class JavaNullType(JavaType):
     """
     def __init__(self):
         super().__init__("null")
+        self.is_object_type = True
+        self.is_instantiable = False 
+        
+    def is_subtype_of(self, other):
+        return isinstance(other, JavaObjectType) or isinstance(other, JavaNullType)
+    
+    def method_named(self, method_name):
+        raise NoSuchJavaMethod("Cannot invoke method {0}() on null".format(method_name))
+
+    def __repr__(self):
+        return "JavaNullType"
+    
+    def __eq__(self, other):
+        return isinstance(other, JavaNullType)
+
+
+        
+        
 
 
 class JavaTypeError(Exception):
