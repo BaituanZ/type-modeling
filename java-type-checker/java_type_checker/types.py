@@ -150,6 +150,7 @@ class JavaVoidType(JavaType):
 
 
 class JavaNullType(JavaType):
+    
     """The type of the value `null` in Java.
 
     Null acts as though it is a subtype of all object types. However, it raises an exception for any
@@ -161,16 +162,9 @@ class JavaNullType(JavaType):
         self.is_instantiable = False 
         
     def is_subtype_of(self, other):
-        return isinstance(other, JavaObjectType) or isinstance(other, JavaNullType)
-    
+        return other.is_object_type
     def method_named(self, method_name):
-        raise NoSuchJavaMethod("Cannot invoke method {0}() on null".format(method_name))
-
-    def __repr__(self):
-        return "JavaNullType"
-    
-    def __eq__(self, other):
-        return isinstance(other, JavaNullType)
+        raise NoSuchJavaMethod("Cannot invoke method {0}() on {1}".format(method_name, self.name))
 
 
         

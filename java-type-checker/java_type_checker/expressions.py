@@ -81,11 +81,11 @@ class JavaAssignment(JavaExpression):
         return self.lhs.static_type()
     
     def check_types(self):
-        lhs_type = self.lhs.static_type()
-        rhs_type = self.rhs.static_type()
-        if not rhs_type.is_subtype_of(lhs_type):
-            raise JavaTypeMismatchError("Cannot assign {0} to variable {1} of type {2}".format(rhs_type.name, self.lhs.name, lhs_type.name))
+        self.lhs.check_types()
+        self.rhs.check_types()
 
+        if not self.rhs.static_type().is_subtype_of(self.lhs.static_type()):
+            raise JavaTypeMismatchError("Cannot assign {2} to variable {0} of type {1}".format(self.lhs.name,self.lhs.static_type().name,self.rhs.static_type().name))
 
 class JavaMethodCall(JavaExpression):
     """A Java method invocation.
@@ -108,33 +108,33 @@ class JavaMethodCall(JavaExpression):
         self.method_name = method_name
         self.args = args
         
+
+    
     def check_types(self):
-        if not self.receiver.static_type():
-            return
+        self.receiver.check_types()
         receiver_type = self.receiver.static_type()
-        if receiver_type is None:
-            raise JavaTypeError("Receiver's type is not defined for method call.")
+        for arg in self.args:
+            arg.check_types()
 
-        method = receiver_type.method_named(self.method_name)
-        if method is None:
-            raise JavaTypeError(f"{receiver_type.name} has no method named {self.method_name}")
+        expected_types = receiver_type.method_named(self.method_name).parameter_types
+        actual_types = [arg.static_type() for arg in self.args]
 
-        expected_count = len(method.parameter_types)
-        actual_count = len(self.args)
-
-        if actual_count != expected_count:
+        if len(expected_types) != len(actual_types):
             raise JavaArgumentCountError(
-                f"Wrong number of arguments for {receiver_type.name}.{self.method_name}(): expected {expected_count}, got {actual_count}"
-            )
+                "Wrong number of arguments for {0}: expected {1}, got {2}".format(
+                    receiver_type.name + "." + self.method_name + "()",
+                    len(expected_types),
+                    len(actual_types)))
 
-        for arg, param_type in zip(self.args, method.parameter_types):
-            arg_type = arg.static_type()
-            if not arg_type.is_subtype_of(param_type):
+        for(expected_type, actual_type) in zip(expected_types, actual_types):
+            if not actual_type.is_subtype_of(expected_type):
                 raise JavaTypeMismatchError(
-                    f"{receiver_type.name}.{self.method_name}() expects arguments of type ({', '.join(pt.name for pt in method.parameter_types)}), but got ({', '.join(str(at.static_type().name) for at in self.args)})"
-                )
-
-
+                    "{0} expects arguments of type {1}, but got {2}".format(
+                        receiver_type.name + "." + self.method_name + "()",
+                        _names(expected_types),
+                        _names(actual_types)))
+    def static_type(self):
+        return self.receiver.static_type().method_named(self.method_name).return_type
 
 
 
@@ -167,8 +167,6 @@ class JavaConstructorCall(JavaExpression):
             raise JavaIllegalInstantiationError(
                 "{0} is not instantiable".format(self.instantiated_type.name)
             )
-
-        # Check the argument count
         constructor = self.instantiated_type.constructor
         if len(self.args) != len(constructor.param_types):
             raise JavaArgumentCountError(
@@ -176,8 +174,6 @@ class JavaConstructorCall(JavaExpression):
                     self.instantiated_type.name, len(constructor.param_types), len(self.args)
                 )
             )
-
-        # Check the argument types
         for arg, param_type in zip(self.args, constructor.param_types):
             arg_type = arg.static_type()
             if not arg_type.is_subtype_of(param_type):
@@ -186,8 +182,6 @@ class JavaConstructorCall(JavaExpression):
                         self.instantiated_type.name, param_type.name, arg_type.name
                     )
                 )
-
-        # Recursively check the types of all arguments
         for arg in self.args:
             arg.check_types()
 
